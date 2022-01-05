@@ -1,0 +1,87 @@
+#!/bin/bash
+dialog --title "gSCP" --msgbox "gSCP requires you to use ssh keys to connect to the server." 10 30
+dialog --clear
+# input server
+server=$(dialog --stdout --inputbox "Enter the server address:" 0 0)
+
+# if the server is empty, exit
+if [ -z "$server" ]; then
+    dialog --clear
+    echo "No server address given. Exiting."
+    exit 1
+fi
+
+# put the output of ls on the server into a variable list
+list=$(ssh $server "ls")
+
+# split the list into an array
+IFS=$'\n' read -d '' -r -a array <<< "$list"
+
+# print it
+for i in "${array[@]}"
+do
+    echo "$i"
+done
+
+# add .. to the beginning of the array
+array=(".." "${array[@]}")
+
+for i in "${array[@]}"
+do
+    # add item to array at this index
+    array[$i]="desc"
+done
+
+while :
+do
+    operation=`dialog --menu "Select operation" 0 0 0 \
+        "Download" "" "Upload" "" "Start Shell Session" "" "Exit" "" 3>&1 1>&2 2>&3`
+    
+    # if the user selected cancel, exit
+    if [ "$operation" = "" ]; then
+        dialog --clear
+        break
+    fi
+
+    # if the user selected exit, exit the loop
+    if [ "$operation" == "Exit" ]; then
+        dialog --clear
+        break
+    fi
+
+    # if the user selected shell session, start a shell session
+    if [ "$operation" == "Start Shell Session" ]; then
+        dialog --clear
+        ssh $server
+    fi
+
+    # if the user selected upload, give a list of files to upload
+    if [ "$operation" == "Upload" ]; then
+        dialog --clear
+        file=`dialog --inputbox "Enter the file name to upload" 0 0 3>&1 1>&2 2>&3`
+        if [ -z "$file" ]; then
+            dialog --clear
+            continue
+        fi
+        path=`dialog --inputbox "Enter the path to upload to" 0 0 3>&1 1>&2 2>&3`
+        if [ -z "$path" ]; then
+            dialog --clear
+            continue
+        fi
+        scp $file $server:$path
+    fi
+    if [ "$operation" == "Download" ]; then
+        dialog --clear
+        file=`dialog --inputbox "Enter the file name to download" 0 0 3>&1 1>&2 2>&3`
+        if [ -z "$file" ]; then
+            dialog --clear
+            continue
+        fi
+        path=`dialog --inputbox "Enter the path to download to" 0 0 3>&1 1>&2 2>&3`
+        if [ -z "$path" ]; then
+            dialog --clear
+            continue
+        fi
+        scp $server:$file $path
+    fi
+done
